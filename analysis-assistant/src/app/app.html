@@ -1,0 +1,200 @@
+<div class="app-container">
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="logo">A</div>
+      <h1>Analyst Workspace: Strategic Recommendations</h1>
+    </div>
+    <div class="header-right">
+      <div class="avatar">KK</div>
+    </div>
+  </header>
+
+  <!-- Stepper -->
+  <div class="stepper-wrapper">
+    <nav class="stepper" aria-label="Progress">
+      <button class="step" [class.completed]="completedSteps.has(1) && currentStep !== 1" [class.active]="currentStep === 1"
+        (click)="goToStep(1)" [attr.aria-current]="currentStep === 1 ? 'step' : null">
+        <span class="step-circle">
+          <mat-icon *ngIf="completedSteps.has(1) && currentStep !== 1" class="check">check</mat-icon>
+          <span *ngIf="!completedSteps.has(1) || currentStep === 1">1</span>
+        </span>
+        <span class="step-label">
+          <strong>Input</strong>
+          <span>{{ completedSteps.has(1) ? 'Completed' : 'Pending' }}</span>
+        </span>
+      </button>
+      <div class="step-line" aria-hidden="true"><span [class.filled]="completedSteps.has(1)"></span></div>
+      <button class="step" [class.active]="currentStep === 2" [class.completed]="completedSteps.has(2) && currentStep !== 2"
+        (click)="goToStep(2)" [disabled]="!completedSteps.has(1)" [attr.aria-current]="currentStep === 2 ? 'step' : null">
+        <span class="step-circle">
+          <mat-icon *ngIf="completedSteps.has(2) && currentStep !== 2" class="check">check</mat-icon>
+          <span *ngIf="!completedSteps.has(2) || currentStep === 2">2</span>
+        </span>
+        <span class="step-label">
+          <strong>Review Priorities</strong>
+          <span>{{ currentStep === 2 ? 'Active' : completedSteps.has(2) ? 'Completed' : 'Pending' }}</span>
+        </span>
+      </button>
+      <div class="step-line" aria-hidden="true"><span [class.filled]="completedSteps.has(2)"></span></div>
+      <button class="step" [class.active]="currentStep === 3" (click)="goToStep(3)"
+        [disabled]="!completedSteps.has(2) || isGenerating" [attr.aria-current]="currentStep === 3 ? 'step' : null">
+        <span class="step-circle">
+          <span>3</span>
+        </span>
+        <span class="step-label">
+          <strong>Recommendations</strong>
+          <span>{{ currentStep === 3 ? 'Streaming' : 'Pending' }}</span>
+        </span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- Main Card -->
+  <main class="workspace">
+    <div class="card">
+      <!-- Polite live region - does not announce every token -->
+      <div aria-live="polite" aria-atomic="true" class="sr-only">{{ liveMessage }}</div>
+
+      <!-- STEP 1 -->
+      <section *ngIf="currentStep === 1" class="step-content" aria-labelledby="step1-title">
+        <h2 id="step1-title">Step 1: Briefing Input</h2>
+        <p class="helper">Paste a regional briefing or load the sample for Solana.</p>
+        <p class="helper">This demonstration uses fixed sample priorities; it does not analyze your briefing with AI.</p>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Briefing text</mat-label>
+          <textarea
+            matInput
+            [ngModel]="briefingText"
+            (ngModelChange)="setBriefing($event)"
+            rows="8"
+            placeholder="Enter briefing text for analysis..."
+            [attr.maxlength]="maxBriefingLength"
+            [disabled]="isAnalyzing"
+            aria-describedby="briefing-error">
+          </textarea>
+        </mat-form-field>
+
+        <div *ngIf="briefingError" id="briefing-error" class="error-box" role="alert">
+          {{ briefingError }}
+        </div>
+
+        <div *ngIf="isAnalyzing" class="streaming-banner" role="status">
+          <mat-icon class="spin">autorenew</mat-icon>
+          <div>
+            <strong>{{ analysisStage }}</strong>
+          </div>
+          <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+        </div>
+
+        <div class="actions">
+          <button mat-stroked-button (click)="loadSample()" [disabled]="isAnalyzing">Load Sample: Solana Briefing</button>
+          <button mat-flat-button color="primary" (click)="analyzeBriefing()" [disabled]="isAnalyzing">Analyze Briefing</button>
+          <button *ngIf="isAnalyzing" mat-stroked-button (click)="cancelAnalysis()">Cancel Analysis</button>
+        </div>
+      </section>
+
+      <!-- STEP 2 - matches screenshot -->
+      <section *ngIf="currentStep === 2" class="step-content" aria-labelledby="step2-title">
+        <h2 id="step2-title">Step 2: Review and Edit Priorities</h2>
+
+        <p class="helper">Review and edit these fixed demonstration priorities. They are not generated from your briefing.</p>
+
+        <div *ngIf="prioritiesError" class="warn-box" role="alert">{{ prioritiesError }}</div>
+
+        <ol class="priority-list">
+          <li *ngFor="let p of priorities" class="priority-item">
+            <!-- View mode -->
+            <div *ngIf="editingId !== p.id" class="priority-view">
+              <div class="priority-content">
+                <div class="priority-title">
+                  <span class="num">{{ p.id }}.</span>
+                  <span class="label" *ngIf="p.label">[Editable Input]</span>
+                  {{ p.title }}
+                </div>
+                <div *ngIf="p.description" class="priority-desc">"{{ p.description }}"</div>
+              </div>
+              <div class="priority-actions">
+                <button mat-icon-button matTooltip="Edit priority" (click)="editPriority(p)" attr.aria-label="Edit priority {{ p.id }}">
+                  <mat-icon>edit</mat-icon>
+                </button>
+                <button mat-icon-button matTooltip="Delete priority" (click)="deletePriority(p.id)" class="delete" attr.aria-label="Delete priority {{ p.id }}">
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </div>
+            </div>
+
+            <!-- Edit mode -->
+            <div *ngIf="editingId === p.id" class="priority-edit">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Priority title</mat-label>
+                <input matInput [(ngModel)]="editTitle" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Description</mat-label>
+                <input matInput [(ngModel)]="editDescription" />
+              </mat-form-field>
+              <div class="edit-actions">
+                <button mat-stroked-button (click)="cancelEdit()">Cancel</button>
+                <button mat-flat-button color="primary" (click)="saveEdit()">Save</button>
+              </div>
+            </div>
+          </li>
+        </ol>
+
+        <button mat-stroked-button (click)="addPriority()" class="add-btn">Add Priority</button>
+
+        <div class="footer-actions">
+          <button mat-button (click)="goToStep(1)">Go Back</button>
+          <button mat-flat-button color="primary" (click)="approvePriorities()">Approve Priorities</button>
+        </div>
+      </section>
+
+      <!-- STEP 3 -->
+      <section *ngIf="currentStep === 3" class="step-content" aria-labelledby="step3-title">
+        <h2 id="step3-title">Step 3: Recommendations</h2>
+        <p *ngIf="generationService.mode === 'mock'" class="demo-badge" role="status">
+          Demonstration mode — recommendations are mock data; no backend is required.
+        </p>
+        <div class="chips">
+          <span class="chip" *ngFor="let p of priorities">{{ p.title }}</span>
+        </div>
+
+        <div class="streaming-banner">
+          <mat-icon class="spin" *ngIf="isGenerating">autorenew</mat-icon>
+          <div>
+            <strong>
+              {{
+                isGenerating ? 'Generating recommendations...' :
+                generationStatus === 'complete' ? 'Recommendations ready' :
+                generationStatus === 'failed' ? 'Generation failed' :
+                generationStatus === 'cancelled' ? 'Generation cancelled' : 'Ready to generate'
+              }}
+            </strong>
+            <pre class="generated-text">{{ generationText }}<span class="cursor" *ngIf="isGenerating">|</span></pre>
+          </div>
+        </div>
+
+        <div *ngIf="generationError" class="error-box" role="alert">{{ generationError }}</div>
+
+        <div class="actions">
+          <button *ngIf="isGenerating" mat-stroked-button (click)="cancelGeneration()">Cancel generation</button>
+          <button
+            *ngIf="!isGenerating && (generationStatus === 'failed' || generationStatus === 'cancelled')"
+            mat-flat-button
+            color="primary"
+            class="retry-generation"
+            (click)="startGeneration()">
+            Retry generation
+          </button>
+        </div>
+
+        <div class="footer-actions">
+          <button mat-button (click)="goToStep(2)">Go Back</button>
+          <button mat-stroked-button (click)="reset()">New Analysis</button>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
